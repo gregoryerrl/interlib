@@ -2,13 +2,20 @@
 import Link from "next/link";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { papers } from "@/mockdata/sampleData";
-import { Plus } from "lucide-react";
+import { Plus, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { get } from "http";
+
+type Paper = {
+  id: string;
+  title: string;
+};
 
 export default function Home() {
   const [title, setTitle] = useState("New Paper");
+  const [papers, setPapers] = useState<Paper[]>([]);
+  const [paper, setPaper] = useState<Paper | null>(null);
 
   const createPaper = async () => {
     try {
@@ -21,9 +28,8 @@ export default function Home() {
       });
 
       if (response.ok) {
-        const paper = await response.json();
+        const papers = await response.json();
         console.log("New paper created:", paper);
-        setTitle("");
       } else {
         console.error("Failed to create paper:", response.status);
       }
@@ -43,12 +49,31 @@ export default function Home() {
         });
         const data = await response.json();
         console.log("Papers fetched:", data);
+        setPapers(data.papers);
       } catch (error) {
         console.error("Error fetching papers:", error);
       }
     };
     getPapers();
   });
+
+  const handleDelete = async (id: string) => {
+    try {
+      const response = await fetch(`/api/paper/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      if (response.ok) {
+        console.log("Paper deleted:", id);
+      } else {
+        console.error("Failed to delete paper:", response.status);
+      }
+    } catch (error) {
+      console.error("Error deleting paper:", error);
+    }
+  };
   return (
     <div className="container mx-auto p-4">
       <div className="flex gap-2">
@@ -61,10 +86,17 @@ export default function Home() {
         {papers.map((paper) => (
           <Card key={paper.id}>
             <CardHeader>
-              <CardTitle>
+              <CardTitle className="flex justify-between items-center">
                 <Link href={`/paper/${paper.id}`} className="hover:underline">
                   {paper.title}
                 </Link>
+                <Button
+                  variant={"ghost"}
+                  className="text-red-500"
+                  onClick={() => handleDelete(paper.id)}
+                >
+                  <Trash />
+                </Button>
               </CardTitle>
             </CardHeader>
           </Card>
