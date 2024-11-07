@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/prisma";
 import { Paper } from "@prisma/client";
 
-export async function PATCH(
+export const PATCH = async (
   req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+  context: { params: { id: string } }
+) => {
   try {
-    const { id } = await params; // Extract the paper ID from the request parameters
+    const { id } = context.params; // Extract the paper ID from the request parameters
     const updateData = await req.json(); // Get the JSON payload sent in the request body
 
     console.log("Update Data received:", updateData);
@@ -78,14 +78,14 @@ export async function PATCH(
     console.error("Error occurred in PATCH request:", error);
     return new Response("Error occurred", { status: 500 });
   }
-}
+};
 
 export const DELETE = async (
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) => {
   try {
-    const { id } = params;
+    const { id } = context.params;
 
     // Delete related topics and chapters first due to referential integrity
     await prisma.topic.deleteMany({
@@ -119,14 +119,21 @@ export const DELETE = async (
 
 export const GET = async (
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) => {
   try {
-    console.log("Fetching paper with ID:", params);
-    const { id } = await params;
+    console.log("Fetching paper with ID:", context.params);
+    const { id } = context.params;
 
     const paper: any = await prisma.paper.findUniqueOrThrow({
       where: { id },
+      include: {
+        chapters: {
+          include: {
+            topics: true,
+          },
+        },
+      },
     });
 
     if (!paper) {

@@ -82,7 +82,7 @@ const TipTapEditor = ({
         <div
           className={`${
             !editable ? "hidden" : ""
-          } flex justify-between items-center mb-2 control-group`}
+          } flex justify-between items-center mb-2 control-group p-5 bg-zinc-300`}
         >
           <div className="button-group">
             <button

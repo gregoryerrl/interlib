@@ -4,8 +4,8 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { papers } from "@/mockdata/sampleData";
 import { Plus, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { use, useEffect, useState } from "react";
-import { get } from "http";
+import { useState, useEffect } from "react";
+import LoadingComponent from "@/components/LoadingComponent";
 
 type Paper = {
   id: string;
@@ -15,32 +15,12 @@ type Paper = {
 export default function Home() {
   const [title, setTitle] = useState("New Paper");
   const [papers, setPapers] = useState<Paper[]>([]);
-  const [paper, setPaper] = useState<Paper | null>(null);
-
-  const createPaper = async () => {
-    try {
-      const response = await fetch("/api/paper", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ title }),
-      });
-
-      if (response.ok) {
-        const papers = await response.json();
-        console.log("New paper created:", paper);
-      } else {
-        console.error("Failed to create paper:", response.status);
-      }
-    } catch (error) {
-      console.error("Error creating paper:", error);
-    }
-  };
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const getPapers = async () => {
       try {
+        setLoading(true);
         const response = await fetch("/api/paper", {
           method: "GET",
           headers: {
@@ -52,10 +32,34 @@ export default function Home() {
         setPapers(data.papers);
       } catch (error) {
         console.error("Error fetching papers:", error);
+      } finally {
+        setLoading(false);
       }
     };
+
     getPapers();
-  });
+  }, []);
+
+  const createPaper = async () => {
+    try {
+      const response = await fetch("/api/paper", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ title }),
+      });
+      if (response.ok) {
+        const newPaper = await response.json();
+        setPapers([...papers, newPaper]);
+        console.log("New paper created:", newPaper);
+      } else {
+        console.error("Failed to create paper:", response.status);
+      }
+    } catch (error) {
+      console.error("Error creating paper:", error);
+    }
+  };
 
   const handleDelete = async (id: string) => {
     try {
@@ -67,6 +71,7 @@ export default function Home() {
       });
       if (response.ok) {
         console.log("Paper deleted:", id);
+        setPapers(papers.filter((paper) => paper.id !== id));
       } else {
         console.error("Failed to delete paper:", response.status);
       }
@@ -74,6 +79,7 @@ export default function Home() {
       console.error("Error deleting paper:", error);
     }
   };
+
   return (
     <div className="container mx-auto p-4">
       <div className="flex gap-2">
@@ -82,26 +88,32 @@ export default function Home() {
           <Plus />
         </Button>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {papers.map((paper) => (
-          <Card key={paper.id}>
-            <CardHeader>
-              <CardTitle className="flex justify-between items-center">
-                <Link href={`/paper/${paper.id}`} className="hover:underline">
-                  {paper.title}
-                </Link>
-                <Button
-                  variant={"ghost"}
-                  className="text-red-500"
-                  onClick={() => handleDelete(paper.id)}
-                >
-                  <Trash />
-                </Button>
-              </CardTitle>
-            </CardHeader>
-          </Card>
-        ))}
-      </div>
+      {loading ? (
+        <div className="h-96">
+          <LoadingComponent />
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {papers.map((paper) => (
+            <Card key={paper.id}>
+              <CardHeader>
+                <CardTitle className="flex justify-between items-center">
+                  <Link href={`/paper/${paper.id}`} className="hover:underline">
+                    {paper.title}
+                  </Link>
+                  <Button
+                    variant={"ghost"}
+                    className="text-red-500"
+                    onClick={() => handleDelete(paper.id)}
+                  >
+                    <Trash />
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

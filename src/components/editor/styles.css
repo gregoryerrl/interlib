@@ -90,6 +90,8 @@
   }
 }
 
+/* Button group styles */
+
 .button-group {
   @apply flex flex-wrap gap-2;
 }
