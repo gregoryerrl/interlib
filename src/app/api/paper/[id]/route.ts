@@ -4,10 +4,10 @@ import { Paper } from "@prisma/client";
 
 export const PATCH = async (
   req: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) => {
   try {
-    const { id } = context.params; // Extract the paper ID from the request parameters
+    const id = (await params).id; // Extract the paper ID from the request parameters
     const updateData = await req.json(); // Get the JSON payload sent in the request body
 
     console.log("Update Data received:", updateData);
@@ -82,10 +82,10 @@ export const PATCH = async (
 
 export const DELETE = async (
   req: Request,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) => {
   try {
-    const { id } = context.params;
+    const id = (await params).id;
 
     // Delete related topics and chapters first due to referential integrity
     await prisma.topic.deleteMany({
@@ -119,11 +119,11 @@ export const DELETE = async (
 
 export const GET = async (
   req: Request,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) => {
   try {
-    console.log("Fetching paper with ID:", context.params);
-    const { id } = context.params;
+    console.log("Fetching paper with ID:", params);
+    const id = (await params).id;
 
     const paper: any = await prisma.paper.findUniqueOrThrow({
       where: { id },

@@ -4,10 +4,10 @@ import prisma from "@/prisma";
 
 export const PATCH = async (
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) => {
   try {
-    const { id } = context.params;
+    const id = (await params).id;
     const chapter = await request.json();
 
     const updatedChapter = await prisma.chapter.update({
@@ -32,10 +32,10 @@ export const PATCH = async (
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const id = (await params).id;
 
     await prisma.topic.deleteMany({
       where: { chapterId: id },
