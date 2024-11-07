@@ -3,10 +3,10 @@ import prisma from "@/prisma";
 
 export const PATCH = async (
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) => {
   try {
-    const { id } = context.params;
+    const { id } = params;
     const topic = await request.json();
 
     const updatedTopic = await prisma.topic.update({
@@ -32,10 +32,10 @@ export const PATCH = async (
 
 export const DELETE = async (
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) => {
   try {
-    const { id } = context.params;
+    const { id } = params;
     await prisma.topic.delete({
       where: {
         id: id,

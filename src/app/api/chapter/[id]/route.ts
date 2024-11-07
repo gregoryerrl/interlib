@@ -4,10 +4,10 @@ import prisma from "@/prisma";
 
 export const PATCH = async (
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) => {
   try {
-    const { id } = context.params;
+    const { id } = params;
     const chapter = await request.json();
 
     const updatedChapter = await prisma.chapter.update({
