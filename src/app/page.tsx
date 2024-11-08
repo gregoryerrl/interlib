@@ -6,6 +6,7 @@ import { Plus, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import LoadingComponent from "@/components/LoadingComponent";
+import { getAllPapers } from "@/actions/paperActions";
 
 type Paper = {
   id: string;
@@ -42,6 +43,7 @@ export default function Home() {
 
   const createPaper = async () => {
     try {
+      setLoading(true);
       const response = await fetch("/api/paper", {
         method: "POST",
         headers: {
@@ -51,18 +53,21 @@ export default function Home() {
       });
       if (response.ok) {
         const newPaper = await response.json();
-        setPapers([...papers, newPaper]);
+        await setPapers([...papers, newPaper]);
         console.log("New paper created:", newPaper);
       } else {
         console.error("Failed to create paper:", response.status);
       }
     } catch (error) {
       console.error("Error creating paper:", error);
+    } finally {
+      window.location.reload();
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
+      setLoading(true);
       const response = await fetch(`/api/paper/${id}`, {
         method: "DELETE",
         headers: {
@@ -77,6 +82,8 @@ export default function Home() {
       }
     } catch (error) {
       console.error("Error deleting paper:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -95,7 +102,7 @@ export default function Home() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {papers.map((paper) => (
-            <Card key={paper.id}>
+            <Card key={`paper-${paper.id}`}>
               <CardHeader>
                 <CardTitle className="flex justify-between items-center">
                   <Link href={`/paper/${paper.id}`} className="hover:underline">

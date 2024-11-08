@@ -459,7 +459,7 @@ export default function PaperView({ paperId }: PaperViewProps) {
                         )}
                       </div>
                     ))}
-                    {isEditing && (
+                    {!isEditing && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -477,7 +477,7 @@ export default function PaperView({ paperId }: PaperViewProps) {
         ) : (
           <div className="text-center text-gray-500 mb-4">No chapters yet</div>
         )}
-        {isEditing && (
+        {!isEditing && (
           <Button
             variant="outline"
             onClick={handleAddChapter}
@@ -502,8 +502,10 @@ export default function PaperView({ paperId }: PaperViewProps) {
           </Button>
         </div>
         {selectedTopic ? (
-          <div className="prose max-w-none">
-            <h2>{selectedTopic.title}</h2>
+          <div className="max-w-none">
+            <h2 className="font-bold text-xl w-100 text-center my-5">
+              {selectedTopic.title}
+            </h2>
             <TipTapEditor
               content={selectedTopic.content}
               onUpdate={(newContent) =>
