@@ -8,75 +8,82 @@ export const PATCH = async (
 ) => {
   try {
     const id = (await params).id; // Extract the paper ID from the request parameters
-    const updateData = await req.json(); // Get the JSON payload sent in the request body
+    const updateData = await req.json();
 
-    console.log("Update Data received:", updateData);
+    console.log("Received Update Data:", updateData);
 
-    // Check if the update data is valid (must be an object and have chapters)
-    if (!updateData || typeof updateData !== "object") {
-      console.log("Invalid update data");
-      return new Response("Invalid update data", { status: 400 });
+    // Validate incoming data
+    if (!updateData || typeof updateData !== "object" || !updateData.title) {
+      return new NextResponse("Invalid update data", { status: 400 });
     }
 
-    // Check if the paper exists in the database
-    const paper = await prisma.paper.findUnique({
+    // Check if the paper exists
+    const existingPaper = await prisma.paper.findUnique({
       where: { id },
     });
-
-    if (!paper) {
+    if (!existingPaper) {
       console.log(`Paper with id ${id} not found`);
-      return new Response("Paper not found", { status: 404 });
+      return new NextResponse("Paper not found", { status: 404 });
     }
 
-    // Log chapters and topics structures to ensure correct data
-    console.log("Chapters in Update Data:", updateData.chapters);
-    updateData.chapters?.forEach((chapter: any) => {
-      console.log("Chapter structure:", chapter);
-      chapter.topics?.forEach((topic: any) => {
-        console.log("Topic structure:", topic);
-      });
-    });
-
-    // Check if chapters or topics are empty (which could cause them not to be created)
-    if (updateData.chapters?.length === 0) {
-      console.log("No chapters to create.");
-    }
-
-    // Proceed to create chapters and topics under the paper
+    // Update the paper, including chapters and topics
     const updatedPaper = await prisma.paper.update({
       where: { id },
       data: {
-        title: updateData.title, // Update the title of the paper
+        title: updateData.title,
         chapters: {
-          create:
-            updateData.chapters?.map((chapter: any) => {
-              if (chapter.topics?.length === 0) {
-                console.log(
-                  `Skipping creation of topics for chapter "${chapter.title}" due to empty topics.`
-                );
-              }
-              return {
-                title: chapter.title, // Title of the chapter
+          // Use 'set' and 'upsert' for efficient updates and inserts
+          upsert:
+            updateData.chapters?.map((chapter: any, chapterIndex: number) => ({
+              where: { id: chapter.id || "" },
+              update: {
+                title: chapter.title,
+                order: chapter.order || chapterIndex,
                 topics: {
-                  create:
-                    chapter.topics?.map((topic: any) => ({
-                      title: topic.title, // Title of the topic
-                      content: topic.content, // Content of the topic
+                  upsert:
+                    chapter.topics?.map((topic: any, topicIndex: number) => ({
+                      where: { id: topic.id || "" },
+                      update: {
+                        title: topic.title,
+                        content: topic.content,
+                        order: topic.order || topicIndex,
+                      },
+                      create: {
+                        title: topic.title,
+                        content: topic.content,
+                        order: topic.order || topicIndex,
+                      },
                     })) || [],
                 },
-              };
-            }) || [],
+              },
+              create: {
+                title: chapter.title,
+                order: chapter.order || chapterIndex,
+                topics: {
+                  create:
+                    chapter.topics?.map((topic: any, topicIndex: number) => ({
+                      title: topic.title,
+                      content: topic.content,
+                      order: topic.order || topicIndex,
+                    })) || [],
+                },
+              },
+            })) || [],
+        },
+      },
+      include: {
+        chapters: {
+          include: { topics: true },
         },
       },
     });
 
     console.log("Updated Paper:", updatedPaper);
 
-    // Return the updated paper with new chapters and topics
-    return new Response(JSON.stringify(updatedPaper), { status: 200 });
-  } catch (error) {
-    console.error("Error occurred in PATCH request:", error);
-    return new Response("Error occurred", { status: 500 });
+    return NextResponse.json(updatedPaper, { status: 200 });
+  } catch (error: any) {
+    console.error("Error in PATCH request:", error);
+    return new NextResponse(`Error: ${error.message}`, { status: 500 });
   }
 };
 
