@@ -97,12 +97,16 @@ export async function updatePaper(
   }
 }
 
-export async function createChapter(paperId: string, title: string) {
+export async function createChapter(
+  paperId: string,
+  title: string,
+  order: number
+) {
   try {
     const response = await fetch(`/api/chapter`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ paperId, title }),
+      body: JSON.stringify({ paperId, title, order }),
     });
     if (!response.ok) {
       throw new Error("Failed to create chapter");
@@ -136,13 +140,14 @@ export async function updateChapter(chapter: Chapter) {
 export async function createTopic(
   chapterId: string,
   title: string,
-  content: string
+  content: string,
+  order: number
 ) {
   try {
     const response = await fetch(`/api/topic`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chapterId, title, content }),
+      body: JSON.stringify({ chapterId, title, content, order }),
     });
     if (!response.ok) {
       throw new Error("Failed to create topic");

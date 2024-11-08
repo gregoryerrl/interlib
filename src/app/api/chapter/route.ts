@@ -4,7 +4,7 @@ import prisma from "@/prisma";
 
 export async function POST(request: NextRequest) {
   try {
-    const { paperId, title } = await request.json();
+    const { paperId, title, order } = await request.json();
 
     // Validate required fields
     if (!paperId || !title) {
@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
       data: {
         title,
         paperId,
+        order,
       },
     });
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ChevronLeft, Plus, Trash2, FileText, Folder } from "lucide-react";
+import { ChevronLeft, Plus, Trash2, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -39,14 +39,241 @@ import {
   Topic as PrismaTopic,
 } from "@prisma/client";
 import LoadingComponent from "./LoadingComponent";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
-type Topic = PrismaTopic & { isNew?: boolean };
-type Chapter = PrismaChapter & { topics: Topic[]; isNew?: boolean };
+type Topic = PrismaTopic & { isNew?: boolean; order: number };
+type Chapter = PrismaChapter & {
+  topics: Topic[];
+  isNew?: boolean;
+  order: number;
+};
 type Paper = PrismaPaper & { chapters: Chapter[] };
 
 type PaperViewProps = {
   paperId: string;
 };
+
+function SortableChapter({
+  chapter,
+  isEditing,
+  handleChapterTitleChange,
+  handleDeleteChapter,
+  handleAddTopic,
+  handleTopicTitleChange,
+  handleDeleteTopic,
+  handleTopicSelect,
+}: {
+  chapter: Chapter;
+  isEditing: boolean;
+  handleChapterTitleChange: (chapterId: string, newTitle: string) => void;
+  handleDeleteChapter: (chapterId: string) => void;
+  handleAddTopic: (chapterId: string) => void;
+  handleTopicTitleChange: (
+    chapterId: string,
+    topicId: string,
+    newTitle: string
+  ) => void;
+  handleDeleteTopic: (chapterId: string, topicId: string) => void;
+  handleTopicSelect: (topic: Topic) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: chapter.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes}>
+      <AccordionItem value={chapter.id}>
+        <AccordionTrigger className="hover:no-underline">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center">
+              {isEditing && (
+                <span {...listeners}>
+                  <GripVertical className="mr-2 h-4 w-4 cursor-grab" />
+                </span>
+              )}
+              {isEditing ? (
+                <Input
+                  value={chapter.title}
+                  onChange={(e) =>
+                    handleChapterTitleChange(chapter.id, e.target.value)
+                  }
+                  className="font-medium text-sm"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                <span className="font-medium text-sm">{chapter.title}</span>
+              )}
+            </div>
+            {isEditing && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="ml-2">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete
+                      the chapter and all its topics.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => handleDeleteChapter(chapter.id)}
+                    >
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
+        </AccordionTrigger>
+        <AccordionContent>
+          <SortableContext
+            items={chapter.topics.map((t) => t.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="pl-4 space-y-2">
+              {chapter.topics
+                .sort((a, b) => a.order - b.order)
+                .map((topic) => (
+                  <SortableTopic
+                    key={topic.id}
+                    topic={topic}
+                    chapterId={chapter.id}
+                    isEditing={isEditing}
+                    handleTopicTitleChange={handleTopicTitleChange}
+                    handleDeleteTopic={handleDeleteTopic}
+                    handleTopicSelect={handleTopicSelect}
+                  />
+                ))}
+            </div>
+          </SortableContext>
+          {isEditing && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleAddTopic(chapter.id)}
+              className="w-full mt-2"
+            >
+              <Plus className="h-4 w-4 mr-2" /> Add Topic
+            </Button>
+          )}
+        </AccordionContent>
+      </AccordionItem>
+    </div>
+  );
+}
+
+function SortableTopic({
+  topic,
+  chapterId,
+  isEditing,
+  handleTopicTitleChange,
+  handleDeleteTopic,
+  handleTopicSelect,
+}: {
+  topic: Topic;
+  chapterId: string;
+  isEditing: boolean;
+  handleTopicTitleChange: (
+    chapterId: string,
+    topicId: string,
+    newTitle: string
+  ) => void;
+  handleDeleteTopic: (chapterId: string, topicId: string) => void;
+  handleTopicSelect: (topic: Topic) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: topic.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      className="flex items-center justify-between"
+    >
+      <div
+        className="flex items-center cursor-pointer"
+        onClick={() => handleTopicSelect(topic)}
+      >
+        {isEditing && (
+          <span {...listeners}>
+            <GripVertical className="mr-2 h-4 w-4 cursor-grab" />
+          </span>
+        )}
+        {isEditing ? (
+          <Input
+            value={topic.title}
+            onChange={(e) =>
+              handleTopicTitleChange(chapterId, topic.id, e.target.value)
+            }
+            className="text-sm"
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <span className="text-sm">{topic.title}</span>
+        )}
+      </div>
+      {isEditing && (
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="ghost" size="sm">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the
+                topic and its content.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => handleDeleteTopic(chapterId, topic.id)}
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </div>
+  );
+}
 
 export default function PaperView({ paperId }: PaperViewProps) {
   const [paper, setPaper] = useState<Paper | null>(null);
@@ -56,6 +283,13 @@ export default function PaperView({ paperId }: PaperViewProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   useEffect(() => {
     const fetchPaper = async () => {
       setIsLoading(true);
@@ -63,7 +297,14 @@ export default function PaperView({ paperId }: PaperViewProps) {
       if (fetchedPaper) {
         const paperWithChapters = {
           ...fetchedPaper,
-          chapters: fetchedPaper.chapters || [],
+          chapters: (fetchedPaper.chapters || []).map((chapter, index) => ({
+            ...chapter,
+            order: chapter.order || index,
+            topics: (chapter.topics || []).map((topic, topicIndex) => ({
+              ...topic,
+              order: topic.order || topicIndex,
+            })),
+          })),
         } as Paper;
         setPaper(paperWithChapters);
         setEditedPaper(paperWithChapters);
@@ -84,11 +325,12 @@ export default function PaperView({ paperId }: PaperViewProps) {
   const handleAddChapter = () => {
     if (editedPaper) {
       const newChapter: Chapter = {
-        id: "", // This will be assigned by the database
+        id: `new-chapter-${Date.now()}`,
         title: "New Chapter",
         topics: [],
         paperId: editedPaper.id,
         isNew: true,
+        order: editedPaper.chapters.length,
       };
       setEditedPaper({
         ...editedPaper,
@@ -137,19 +379,25 @@ export default function PaperView({ paperId }: PaperViewProps) {
 
   const handleAddTopic = (chapterId: string) => {
     if (editedPaper) {
-      const newTopic: Topic = {
-        id: "", // This will be assigned by the database
-        title: "New Topic",
-        content: "This topic has no content yet",
-        chapterId: chapterId,
-        isNew: true,
-      };
-      setEditedPaper({
-        ...editedPaper,
-        chapters: editedPaper.chapters.map((ch) =>
-          ch.id === chapterId ? { ...ch, topics: [...ch.topics, newTopic] } : ch
-        ),
-      });
+      const chapter = editedPaper.chapters.find((c) => c.id === chapterId);
+      if (chapter) {
+        const newTopic: Topic = {
+          id: `new-topic-${Date.now()}`,
+          title: "New Topic",
+          content: "This topic has no content yet",
+          chapterId: chapterId,
+          isNew: true,
+          order: chapter.topics.length,
+        };
+        setEditedPaper({
+          ...editedPaper,
+          chapters: editedPaper.chapters.map((ch) =>
+            ch.id === chapterId
+              ? { ...ch, topics: [...ch.topics, newTopic] }
+              : ch
+          ),
+        });
+      }
     }
   };
 
@@ -225,6 +473,68 @@ export default function PaperView({ paperId }: PaperViewProps) {
     setSelectedTopic(topic);
   };
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id) {
+      setEditedPaper((prev) => {
+        if (!prev) return null;
+
+        const oldIndex = prev.chapters.findIndex(
+          (chapter) => chapter.id === active.id
+        );
+        const newIndex = prev.chapters.findIndex(
+          (chapter) => chapter.id === over?.id
+        );
+
+        if (oldIndex !== -1 && newIndex !== -1) {
+          const newChapters = arrayMove(prev.chapters, oldIndex, newIndex);
+          return {
+            ...prev,
+            chapters: newChapters.map((chapter, index) => ({
+              ...chapter,
+              order: index,
+            })),
+          };
+        }
+
+        // Handle topic drag
+        for (const chapter of prev.chapters) {
+          const oldTopicIndex = chapter.topics.findIndex(
+            (topic) => topic.id === active.id
+          );
+          const newTopicIndex = chapter.topics.findIndex(
+            (topic) => topic.id === over?.id
+          );
+
+          if (oldTopicIndex !== -1 && newTopicIndex !== -1) {
+            const newTopics = arrayMove(
+              chapter.topics,
+              oldTopicIndex,
+              newTopicIndex
+            );
+            return {
+              ...prev,
+              chapters: prev.chapters.map((ch) =>
+                ch.id === chapter.id
+                  ? {
+                      ...ch,
+                      topics: newTopics.map((topic, index) => ({
+                        ...topic,
+                        order: index,
+                      })),
+                    }
+                  : ch
+              ),
+            };
+          }
+        }
+
+        return prev;
+      });
+    }
+  };
+
   const handleSave = async () => {
     if (editedPaper && paper) {
       setIsLoading(true);
@@ -245,7 +555,8 @@ export default function PaperView({ paperId }: PaperViewProps) {
           // New chapter
           const { chapter: newChapter, error } = await createChapter(
             editedPaper.id,
-            chapter.title
+            chapter.title,
+            chapter.order
           );
           if (error) {
             setError("Failed to create new chapter");
@@ -257,11 +568,15 @@ export default function PaperView({ paperId }: PaperViewProps) {
             delete chapter.isNew;
           }
         } else {
-          // Existing chapter, update if title changed
+          // Existing chapter, update if title or order changed
           const originalChapter = paper.chapters.find(
             (c) => c.id === chapter.id
           );
-          if (originalChapter && originalChapter.title !== chapter.title) {
+          if (
+            originalChapter &&
+            (originalChapter.title !== chapter.title ||
+              originalChapter.order !== chapter.order)
+          ) {
             const { chapter: updatedChapter, error } = await updateChapter(
               chapter
             );
@@ -280,7 +595,8 @@ export default function PaperView({ paperId }: PaperViewProps) {
             const { topic: newTopic, error } = await createTopic(
               chapter.id,
               topic.title,
-              topic.content
+              topic.content,
+              topic.order
             );
             if (error) {
               setError("Failed to create new topic");
@@ -299,7 +615,8 @@ export default function PaperView({ paperId }: PaperViewProps) {
             if (
               originalTopic &&
               (originalTopic.title !== topic.title ||
-                originalTopic.content !== topic.content)
+                originalTopic.content !== topic.content ||
+                originalTopic.order !== topic.order)
             ) {
               const { topic: updatedTopic, error } = await updateTopic(topic);
               if (error) {
@@ -345,139 +662,38 @@ export default function PaperView({ paperId }: PaperViewProps) {
           />
         </div>
         {editedPaper.chapters.length > 0 ? (
-          <Accordion type="multiple" className="w-full">
-            {editedPaper.chapters.map((chapter) => (
-              <AccordionItem
-                key={chapter.id || chapter.title}
-                value={chapter.id || chapter.title}
-              >
-                <AccordionTrigger className="hover:no-underline">
-                  <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center">
-                      <Folder className="mr-2 h-4 w-4" />
-                      {isEditing ? (
-                        <Input
-                          value={chapter.title}
-                          onChange={(e) =>
-                            handleChapterTitleChange(chapter.id, e.target.value)
-                          }
-                          className="font-medium text-sm"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      ) : (
-                        <span className="font-medium text-sm">
-                          {chapter.title}
-                        </span>
-                      )}
-                    </div>
-                    {isEditing && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="sm" className="ml-2">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This action cannot be undone. This will
-                              permanently delete the chapter and all its topics.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDeleteChapter(chapter.id)}
-                            >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    )}
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="pl-4 space-y-2">
-                    {chapter.topics.map((topic) => (
-                      <div
-                        key={topic.id || topic.title}
-                        className="flex items-center justify-between"
-                      >
-                        <div
-                          className="flex items-center cursor-pointer"
-                          onClick={() => handleTopicSelect(topic)}
-                        >
-                          <FileText className="mr-2 h-4 w-4" />
-                          {isEditing ? (
-                            <Input
-                              value={topic.title}
-                              onChange={(e) =>
-                                handleTopicTitleChange(
-                                  chapter.id,
-                                  topic.id,
-                                  e.target.value
-                                )
-                              }
-                              className="text-sm"
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          ) : (
-                            <span className="text-sm">{topic.title}</span>
-                          )}
-                        </div>
-                        {isEditing && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                  Are you sure?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This action cannot be undone. This will
-                                  permanently delete the topic and its content.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() =>
-                                    handleDeleteTopic(chapter.id, topic.id)
-                                  }
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        )}
-                      </div>
-                    ))}
-                    {!isEditing && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleAddTopic(chapter.id)}
-                        className="w-full mt-2"
-                      >
-                        <Plus className="h-4 w-4 mr-2" /> Add Topic
-                      </Button>
-                    )}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={editedPaper.chapters.map((chapter) => chapter.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <Accordion type="multiple" className="w-full">
+                {editedPaper.chapters
+                  .sort((a, b) => a.order - b.order)
+                  .map((chapter) => (
+                    <SortableChapter
+                      key={chapter.id}
+                      chapter={chapter}
+                      isEditing={isEditing}
+                      handleChapterTitleChange={handleChapterTitleChange}
+                      handleDeleteChapter={handleDeleteChapter}
+                      handleAddTopic={handleAddTopic}
+                      handleTopicTitleChange={handleTopicTitleChange}
+                      handleDeleteTopic={handleDeleteTopic}
+                      handleTopicSelect={handleTopicSelect}
+                    />
+                  ))}
+              </Accordion>
+            </SortableContext>
+          </DndContext>
         ) : (
           <div className="text-center text-gray-500 mb-4">No chapters yet</div>
         )}
-        {!isEditing && (
+        {isEditing && (
           <Button
             variant="outline"
             onClick={handleAddChapter}

@@ -3,7 +3,7 @@ import prisma from "@/prisma";
 
 export async function POST(request: NextRequest) {
   try {
-    const { chapterId, title, content } = await request.json();
+    const { chapterId, title, content, order } = await request.json();
 
     // Validate required fields
     if (!chapterId || !title) {
@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
         title,
         content: content || "", // Make content optional with default empty string
         chapterId,
+        order,
       },
     });
 

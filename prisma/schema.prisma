@@ -22,6 +22,7 @@ model Paper {
 model Chapter {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   title     String
+  order     Int
   topics    Topic[]
   paper     Paper    @relation(fields: [paperId], references: [id])
   paperId   String   @db.ObjectId
@@ -30,6 +31,7 @@ model Chapter {
 model Topic {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   title     String
+  order     Int
   content   String
   chapter   Chapter  @relation(fields: [chapterId], references: [id])
   chapterId String   @db.ObjectId
